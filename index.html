@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GlobalGuard - 自動化語言翻譯系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', "Microsoft JhengHei", "微軟正黑體", sans-serif;
+        }
+        .osris-title { font-weight: 900; letter-spacing: -0.02em; }
+        .osris-subtitle { font-weight: 900; color: #94a3b8; letter-spacing: 0.25em; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @media print {
+            .no-print { display: none !important; }
+            .print-area { box-shadow: none !important; border: none !important; width: 100% !important; }
+        }
+
+        #toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 100;
+            transform: translateY(100px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        #toast.show { transform: translateY(0); }
+        
+        .admin-only { display: none; }
+        body.is-admin .admin-only { display: block; }
+        body.is-admin .admin-flex { display: flex; }
+        
+        .record-item:hover .record-actions { opacity: 1; }
+        .record-actions { opacity: 0; transition: opacity 0.2s; }
+
+        #save-record-btn { display: none; }
+        body.is-admin #save-record-btn { display: flex; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+    <div class="max-w-7xl mx-auto p-4 md:p-8">
+        <header class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6 border-b border-slate-200 pb-8 no-print">
+            <div class="flex items-center gap-4 text-left">
+                <div class="relative p-3 bg-blue-600 rounded-xl shadow-lg">
+                    <div class="absolute inset-0 rounded-xl bg-blue-400 opacity-20 animate-pulse"></div>
+                    <i data-lucide="clipboard-list" class="text-white w-8 h-8 relative z-10"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-black leading-tight flex items-center gap-3" style="font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif; font-weight:900; letter-spacing:0.02em; color:#6B7280; text-shadow: 1px 1px 0 rgba(15,23,42,0.08);">職業安全智慧翻譯系統</h1>
+                    <p class="text-[11px] uppercase mt-1.5 osris-subtitle">Occupational Safety Intelligent Translation System</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="window.print()" class="flex items-center gap-2 px-4 py-2 text-sm font-black text-slate-600 hover:bg-white hover:shadow-sm rounded-lg transition-all border border-transparent hover:border-slate-200">
+                    <i data-lucide="printer" class="w-4 h-4"></i> 列印
+                </button>
+                <div class="w-px h-6 bg-slate-200 mx-2"></div>
+                <button id="admin-login-btn" onclick="handleAdminButtonClick()" class="flex items-center gap-2 px-4 py-2 text-sm font-black bg-slate-100 text-slate-800 hover:bg-slate-200 rounded-lg transition-all">
+                    <i data-lucide="settings" class="w-4 h-4" id="admin-btn-icon"></i> <span id="admin-btn-text">管理員</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-4 space-y-6 no-print">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-lg font-black flex items-center gap-2 text-slate-800 uppercase tracking-tight">
+                            <i data-lucide="file-text" class="w-5 h-5 text-blue-500"></i>
+                            模式與輸入
+                        </h2>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 p-1 bg-slate-100 rounded-xl mb-6">
+                        <button onclick="setMode('general')" id="btn-general" class="mode-btn py-2 text-[10px] md:text-xs font-black rounded-lg transition-all flex items-center justify-center gap-1 bg-white text-blue-600 shadow-sm">
+                            <i data-lucide="zap" class="w-3 h-3"></i> 一般翻譯
+                        </button>
+                        <button onclick="setMode('smart')" id="btn-smart" class="mode-btn py-2 text-[10px] md:text-xs font-black rounded-lg transition-all flex items-center justify-center gap-1">
+                            <i data-lucide="sparkles" class="w-3 h-3"></i> 智慧模式
+                        </button>
+                        <button onclick="setMode('photo')" id="btn-photo" class="mode-btn py-2 text-[10px] md:text-xs font-black rounded-lg transition-all flex items-center justify-center gap-1">
+                            <i data-lucide="camera" class="w-3 h-3"></i> 拍照模式
+                        </button>
+                    </div>
+
+                    <div id="text-input-area">
+                        <textarea id="main-input" class="w-full h-48 p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm leading-relaxed mb-4 font-medium" placeholder="輸入欲翻譯之文字..."></textarea>
+                    </div>
+
+                    <div id="photo-input-area" class="hidden">
+                        <div id="drop-zone" class="w-full h-48 border-2 border-dashed rounded-2xl mb-4 transition-all flex flex-col items-center justify-center p-4 text-center cursor-pointer overflow-hidden relative border-slate-200 bg-slate-50">
+                            <div id="photo-placeholder" class="flex flex-col items-center">
+                                <div class="bg-blue-100 p-3 rounded-full mb-3">
+                                    <i data-lucide="image-plus" class="w-6 h-6 text-blue-600"></i>
+                                </div>
+                                <p class="text-xs font-black text-slate-700 mb-1">拍照、點擊或拖拽圖片</p>
+                                <p class="text-[10px] text-slate-400 font-bold">支援 JPG, PNG, WEBP</p>
+                            </div>
+                            <img id="photo-preview" class="hidden w-full h-full object-cover rounded-xl" src="" alt="Preview">
+                            <input type="file" id="file-input" class="hidden" accept="image/*" capture="environment">
+                        </div>
+                    </div>
+                    
+                    <button id="generate-btn" onclick="generateTrainingSuite()" class="w-full bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 text-md uppercase tracking-tight">
+                        <i data-lucide="languages" id="btn-icon" class="w-5 h-5 text-blue-400"></i>
+                        <span id="btn-text">執行文字翻譯</span>
+                    </button>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                    <h2 class="text-lg font-black flex items-center gap-2 text-slate-800 uppercase tracking-tight mb-4">
+                        <i data-lucide="folder-kanban" class="w-5 h-5 text-indigo-500"></i>
+                        歷史記錄管理
+                    </h2>
+                    <div id="history-list" class="space-y-2 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
+                        <p class="text-xs text-slate-400 font-bold text-center py-4">暫無儲存記錄</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 p-6 rounded-3xl border border-slate-200 border-dashed">
+                    <h3 class="text-sm font-black text-slate-500 mb-4 flex items-center gap-2 uppercase tracking-widest">
+                        <i data-lucide="database" class="w-4 h-4"></i> 數據備份管理
+                    </h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="exportDatabase()" class="flex items-center justify-center gap-2 px-3 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-700 hover:bg-slate-100 transition-colors">
+                            <i data-lucide="download" class="w-3.5 h-3.5"></i> 導出數據庫
+                        </button>
+                        <button onclick="document.getElementById('import-input').click()" class="flex items-center justify-center gap-2 px-3 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-700 hover:bg-slate-100 transition-colors">
+                            <i data-lucide="upload" class="w-3.5 h-3.5"></i> 導入數據庫
+                        </button>
+                        <input type="file" id="import-input" class="hidden" accept=".json" onchange="importDatabase(event)">
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8 space-y-6">
+                <div id="empty-state" class="bg-white h-[600px] rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 p-12 text-center">
+                    <div class="bg-slate-50 p-8 rounded-full mb-6">
+                        <i data-lucide="globe" class="w-16 h-16 opacity-10"></i>
+                    </div>
+                    <p class="text-xl font-black text-slate-500 uppercase tracking-tight">準備就緒</p>
+                    <p id="empty-desc" class="text-xs mt-2 max-w-xs font-bold leading-relaxed text-slate-400">
+                        一般模式將僅針對您的內容提供精準的多國語言對照。
+                    </p>
+                </div>
+
+                <div id="result-content" class="hidden space-y-6 fade-in">
+                    <div id="lang-tabs" class="flex p-1.5 bg-slate-200/50 rounded-2xl w-fit backdrop-blur-sm sticky top-4 z-20 border border-white/50 no-print"></div>
+
+                    <div class="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 relative print-area">
+                        <div class="absolute top-0 right-0 p-6 no-print flex gap-2">
+                            <button id="save-record-btn" onclick="saveCurrentRecord()" class="p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all items-center gap-2 border border-indigo-100">
+                                <i data-lucide="bookmark-plus" class="w-5 h-5"></i>
+                                <span class="font-black text-xs uppercase tracking-tight">儲存記錄</span>
+                            </button>
+                            <button id="tts-btn" onclick="playAudio()" class="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all flex items-center gap-2">
+                                <i data-lucide="volume-2" class="w-5 h-5" id="tts-icon"></i>
+                                <span class="font-black text-xs uppercase tracking-tight">播放語音</span>
+                            </button>
+                        </div>
+
+                        <h3 id="display-title" class="text-2xl font-black text-slate-800 mb-8 flex items-center gap-4 uppercase tracking-tighter">
+                            <div class="w-1.5 h-8 bg-blue-600 rounded-full"></div>
+                            載入中...
+                        </h3>
+
+                        <div id="display-steps" class="space-y-4"></div>
+
+                        <div id="warning-container" class="mt-8 p-6 bg-red-600 text-white rounded-3xl flex items-center gap-5 shadow-lg shadow-red-100 text-left">
+                            <div class="bg-white/20 p-3 rounded-xl backdrop-blur-md">
+                                <i data-lucide="zap" class="w-6 h-6 text-white"></i>
+                            </div>
+                            <div>
+                                <p class="text-[10px] uppercase tracking-widest font-black opacity-70 mb-0.5">Warning / Peringatan / Cảnh báo</p>
+                                <p id="display-warning" class="text-lg font-black italic tracking-tight leading-tight">請確保所有人員均已理解上述規定。</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 p-10 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden text-left print-area">
+                        <div class="relative z-10">
+                            <div class="flex justify-between items-center mb-8">
+                                <h3 class="text-lg font-black flex items-center gap-3 uppercase tracking-tight">
+                                    <i data-lucide="user-check" class="w-5 h-5 text-blue-400"></i>
+                                    教育訓練記錄
+                                </h3>
+                                <div class="text-[10px] font-black opacity-50 uppercase tracking-[0.2em]">Internal Use Only</div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 mb-8 font-bold">
+                                <div class="bg-white/5 p-4 rounded-xl border border-white/10">
+                                    <span class="text-slate-400 text-[10px] block mb-1 font-black uppercase">訓練日期</span>
+                                    <span id="display-date" class="text-md"></span>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl border border-white/10">
+                                    <span class="text-slate-400 text-[10px] block mb-1 font-black uppercase">廠區位置</span>
+                                    <span id="display-location" class="text-md"></span>
+                                </div>
+                            </div>
+                            <div class="bg-white/5 rounded-2xl border border-white/10 overflow-hidden">
+                                <table class="w-full text-xs">
+                                    <thead class="bg-white/10 text-slate-400 font-black uppercase tracking-tighter">
+                                        <tr><th class="px-6 py-3 text-left">部門 (Dept.)</th><th class="px-6 py-3 text-left">工號 (ID)</th><th class="px-6 py-3 text-left">姓名 (Name)</th></tr>
+                                    </thead>
+                                    <tbody id="display-trainees" class="divide-y divide-white/5 font-bold">
+                                        <!-- 動態產生內容 -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-8 transform transition-all scale-95" id="admin-modal-content">
+            <div id="login-view">
+                <div class="flex flex-col items-center text-center mb-6">
+                    <div class="bg-slate-100 p-4 rounded-2xl mb-4">
+                        <i data-lucide="shield-check" class="w-8 h-8 text-slate-800"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-800">管理員身份驗證</h3>
+                    <p class="text-xs text-slate-400 font-bold mt-1">請輸入驗證碼以開啟編輯功能</p>
+                </div>
+                <input type="password" id="admin-password" class="w-full text-center text-2xl tracking-[1em] font-black p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:ring-0 outline-none mb-4 transition-all" placeholder="****">
+                
+                <div class="flex flex-col gap-3">
+                    <button onclick="verifyAdmin()" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black text-sm hover:bg-black transition-all">確認驗證</button>
+                    <div class="flex items-center justify-between mt-2">
+                        <button onclick="closeAdminModal()" class="text-xs font-black text-slate-400 hover:text-slate-600">關閉視窗</button>
+                        <button onclick="toggleAdminView('settings')" class="text-xs font-black text-blue-600 hover:underline">變更管理員密碼</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="settings-view" class="hidden">
+                <div class="flex flex-col items-center text-center mb-6">
+                    <div class="bg-blue-50 p-4 rounded-2xl mb-4">
+                        <i data-lucide="key-round" class="w-8 h-8 text-blue-600"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-800">安全設定</h3>
+                    <p class="text-xs text-slate-400 font-bold mt-1">變更管理員驗證碼</p>
+                </div>
+                <div class="space-y-3 mb-6">
+                    <input type="password" id="old-password" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-500" placeholder="目前的密碼">
+                    <input type="password" id="new-password" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-500" placeholder="新密碼">
+                    <input type="password" id="confirm-password" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-500" placeholder="確認新密碼">
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="toggleAdminView('login')" class="flex-1 py-3 text-sm font-black text-slate-400">返回</button>
+                    <button onclick="updatePassword()" class="flex-[2] bg-blue-600 text-white py-3 rounded-xl font-black text-sm hover:bg-blue-700 transition-all">更新密碼</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl p-8 max-h-[90vh] overflow-y-auto no-scrollbar">
+            <h3 class="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
+                <i data-lucide="edit-3" class="w-6 h-6 text-blue-500"></i> 編輯記錄資訊
+            </h3>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">訓練日期</label>
+                        <input type="date" id="edit-date" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">廠區位置</label>
+                        <input type="text" id="edit-location" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none" placeholder="輸入廠區名稱">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">訓練主題 (繁體中文)</label>
+                    <input type="text" id="edit-title" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">細部步驟 (每行一項)</label>
+                    <textarea id="edit-content" class="w-full h-32 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none leading-relaxed"></textarea>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-[10px] font-black text-slate-400 uppercase block">受訓人員名單</label>
+                        <button onclick="addEditTraineeRow()" class="text-[10px] font-black text-blue-600 hover:underline">+ 新增人員</button>
+                    </div>
+                    <div id="edit-trainees-container" class="space-y-2">
+                        <!-- 動態人員編輯列 -->
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-4 mt-8">
+                <button onclick="closeEditModal()" class="flex-1 py-3 text-sm font-black text-slate-400">取消</button>
+                <button onclick="saveEdit()" class="flex-[2] bg-blue-600 text-white py-3 rounded-xl font-black text-sm">儲存變更</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/10">
+        <i data-lucide="info" class="w-5 h-5 text-blue-400"></i>
+        <span id="toast-message" class="text-xs font-black uppercase tracking-tight">訊息已儲存</span>
+    </div>
+
+    <script>
+        const DB_NAME = 'GlobalGuardDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'training_records';
+        let db;
+        let isAdmin = false;
+        let currentEditingId = null;
+        let currentMode = 'general'; // 預設改為一般模式
+        let trainingData = null;
+        let activeLang = 'zh-TW';
+        let audioUrls = {};
+
+        const SUPPORTED_LANGS = [
+            { code: 'zh-TW', name: '繁體中文', flag: '🇹🇼', voice: 'Kore' },
+            { code: 'en-US', name: '英語', flag: '🇺🇸', voice: 'Zephyr' },
+            { code: 'tl-PH', name: '菲律賓語', flag: '🇵🇭', voice: 'Puck' },
+            { code: 'vi-VN', name: '越南語', flag: '🇻🇳', voice: 'Leda' },
+            { code: 'id-ID', name: '印尼語', flag: '🇮🇩', voice: 'Indra' }
+        ];
+
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+            }
+        };
+        request.onsuccess = (e) => { db = e.target.result; loadHistory(); };
+
+        if (!localStorage.getItem('gg_admin_pwd')) {
+            localStorage.setItem('gg_admin_pwd', '1068');
+        }
+
+        function handleAdminButtonClick() {
+            if (isAdmin) {
+                logoutAdmin();
+            } else {
+                openAdminModal();
+            }
+        }
+
+        function openAdminModal() {
+            const modal = document.getElementById('admin-modal');
+            modal.classList.remove('hidden');
+            toggleAdminView('login');
+            setTimeout(() => document.getElementById('admin-password').focus(), 100);
+        }
+
+        function toggleAdminView(view) {
+            const loginView = document.getElementById('login-view');
+            const settingsView = document.getElementById('settings-view');
+            if (view === 'settings') {
+                loginView.classList.add('hidden');
+                settingsView.classList.remove('hidden');
+            } else {
+                loginView.classList.remove('hidden');
+                settingsView.classList.add('hidden');
+            }
+        }
+
+        function closeAdminModal() {
+            document.getElementById('admin-modal').classList.add('hidden');
+            document.getElementById('admin-password').value = '';
+            document.getElementById('old-password').value = '';
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-password').value = '';
+        }
+
+        function verifyAdmin() {
+            const pwd = document.getElementById('admin-password').value;
+            if (pwd === localStorage.getItem('gg_admin_pwd')) {
+                isAdmin = true;
+                document.body.classList.add('is-admin');
+                document.getElementById('admin-btn-text').innerText = "登出模式";
+                document.getElementById('admin-login-btn').classList.replace('bg-slate-100', 'bg-red-600');
+                document.getElementById('admin-login-btn').classList.replace('text-slate-800', 'text-white');
+                document.getElementById('admin-btn-icon').setAttribute('data-lucide', 'log-out');
+                showToast("管理員身份驗證成功");
+                closeAdminModal();
+                loadHistory();
+                lucide.createIcons();
+            } else {
+                showToast("密碼錯誤");
+                document.getElementById('admin-password').value = '';
+            }
+        }
+
+        function logoutAdmin() {
+            isAdmin = false;
+            document.body.classList.remove('is-admin');
+            document.getElementById('admin-btn-text').innerText = "管理員";
+            document.getElementById('admin-login-btn').classList.replace('bg-red-600', 'bg-slate-100');
+            document.getElementById('admin-login-btn').classList.replace('text-white', 'text-slate-800');
+            document.getElementById('admin-btn-icon').setAttribute('data-lucide', 'settings');
+            showToast("已登出管理員模式");
+            loadHistory();
+            lucide.createIcons();
+        }
+
+        function updatePassword() {
+            const oldPwd = document.getElementById('old-password').value;
+            const newPwd = document.getElementById('new-password').value;
+            const confirmPwd = document.getElementById('confirm-password').value;
+            if (oldPwd !== localStorage.getItem('gg_admin_pwd')) { showToast("舊密碼不正確"); return; }
+            if (newPwd !== confirmPwd) { showToast("兩次新密碼不一致"); return; }
+            localStorage.setItem('gg_admin_pwd', newPwd);
+            showToast("驗證碼已更新成功");
+            toggleAdminView('login');
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('bg-white', 'text-blue-600', 'shadow-sm'));
+            document.getElementById(`btn-${mode}`).classList.add('bg-white', 'text-blue-600', 'shadow-sm');
+
+            const textArea = document.getElementById('text-input-area');
+            const photoArea = document.getElementById('photo-input-area');
+            const btnIcon = document.getElementById('btn-icon');
+            const btnText = document.getElementById('btn-text');
+            const emptyDesc = document.getElementById('empty-desc');
+
+            if (mode === 'photo') {
+                textArea.classList.add('hidden');
+                photoArea.classList.remove('hidden');
+                btnIcon.setAttribute('data-lucide', 'maximize');
+                btnText.innerText = '掃描並翻譯圖片';
+                emptyDesc.innerText = '請上傳或拍攝現場安全告示照片。系統將自動辨識文字並生成多語系翻譯。';
+            } else {
+                textArea.classList.remove('hidden');
+                photoArea.classList.add('hidden');
+                btnIcon.setAttribute('data-lucide', mode === 'smart' ? 'sparkles' : 'zap');
+                btnText.innerText = mode === 'smart' ? '啟動 AI 智慧翻譯' : '執行文字翻譯';
+                emptyDesc.innerText = mode === 'smart' ? "請在左側輸入簡短重點。智慧模式將自動引用安全標準並生成多語系文件。" : "一般模式將僅針對您的內容提供精準的多國語言對照。";
+                document.getElementById('main-input').placeholder = mode === 'smart' ? "輸入重點，系統將自動補強職安法規..." : "輸入欲翻譯之文字...";
+            }
+            lucide.createIcons();
+        }
+
+        async function generateTrainingSuite() {
+            const btn = document.getElementById('generate-btn');
+            const btnText = document.getElementById('btn-text');
+            const inputVal = document.getElementById('main-input').value;
+            if ((currentMode !== 'photo' && !inputVal) || (currentMode === 'photo' && !document.getElementById('photo-preview').src)) return;
+
+            btn.disabled = true;
+            btnText.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> 處理中...';
+            lucide.createIcons();
+
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `你是一位專業的工廠職安經理。規則：
+            1. ${currentMode === 'general' ? '精確翻譯輸入文字，不額外增加法規或步驟。' : '智慧補強職安法規與標準作業程序。'}
+            2. 輸出 JSON 格式：{"topic":"...","translations":{"zh-TW":{"title":"...","content":["..."],"warning":"..."},"en-US":{...},"tl-PH":{...},"vi-VN":{...},"id-ID":{...}},"records":{"training_date":"${new Date().toISOString().split('T')[0]}","location":"","trainees":[{"dept":"","id":"","name":""},{"dept":"","id":"","name":""},{"dept":"","id":"","name":""}]}}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ 
+                            parts: [
+                                { text: currentMode === 'photo' ? "分析照片職安內容" : inputVal },
+                                ...(currentMode === 'photo' ? [{ inline_data: { mime_type: "image/jpeg", data: document.getElementById('photo-preview').src.split(',')[1] } }] : [])
+                            ] 
+                        }],
+                        generationConfig: { responseMimeType: "application/json" },
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                    })
+                });
+                const result = await response.json();
+                trainingData = JSON.parse(result.candidates[0].content.parts[0].text);
+                renderResult();
+            } catch (error) {
+                showToast("連線失敗，請檢查網路。");
+            } finally {
+                btn.disabled = false;
+                setMode(currentMode); // 恢復按鈕文字
+            }
+        }
+
+        function renderResult() {
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('result-content').classList.remove('hidden');
+            const tabContainer = document.getElementById('lang-tabs');
+            tabContainer.innerHTML = '';
+            SUPPORTED_LANGS.forEach(lang => {
+                const button = document.createElement('button');
+                button.className = `px-5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all ${activeLang === lang.code ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5' : 'text-slate-600 hover:bg-slate-300/30'}`;
+                button.innerHTML = `<span class="text-lg">${lang.flag}</span> ${lang.name}`;
+                button.onclick = () => { activeLang = lang.code; renderResult(); };
+                tabContainer.appendChild(button);
+            });
+            const currentContent = trainingData.translations[activeLang];
+            document.getElementById('display-title').innerHTML = `<div class="w-1.5 h-8 bg-blue-600 rounded-full"></div> ${currentContent.title}`;
+            
+            const warningContainer = document.getElementById('warning-container');
+            if (currentMode === 'general') {
+                warningContainer.classList.add('hidden');
+            } else {
+                warningContainer.classList.remove('hidden');
+                document.getElementById('display-warning').innerText = currentContent.warning;
+            }
+
+            const stepsContainer = document.getElementById('display-steps');
+            stepsContainer.innerHTML = '';
+            currentContent.content.forEach((step, idx) => {
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'flex gap-4 items-start bg-slate-50 p-5 rounded-2xl border border-slate-100 transition-all text-left';
+                stepDiv.innerHTML = `<div class="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0 font-black text-sm">${idx + 1}</div><p class="text-slate-700 text-md leading-relaxed pt-1 font-bold tracking-tight">${step}</p>`;
+                stepsContainer.appendChild(stepDiv);
+            });
+
+            // 渲染教育訓練記錄 - 移除「未設定」預設值，改為空白
+            document.getElementById('display-date').innerText = trainingData.records.training_date || '';
+            document.getElementById('display-location').innerText = trainingData.records.location || '';
+            
+            const traineeTable = document.getElementById('display-trainees');
+            traineeTable.innerHTML = '';
+            const trainees = trainingData.records.trainees || [];
+            trainees.forEach(t => {
+                const row = document.createElement('tr');
+                // 移除表格內的底線預設值，改為空白
+                row.innerHTML = `
+                    <td class="px-6 py-4">${t.dept || ''}</td>
+                    <td class="px-6 py-4 text-slate-500 font-mono">${t.id || ''}</td>
+                    <td class="px-6 py-4">${t.name || ''}</td>
+                `;
+                traineeTable.appendChild(row);
+            });
+
+            lucide.createIcons();
+        }
+
+        function openEditModal(id = null) {
+            currentEditingId = id;
+            let dataToEdit = trainingData;
+
+            if (id) {
+                const transaction = db.transaction([STORE_NAME], 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                store.get(id).onsuccess = (e) => {
+                    populateEditForm(e.target.result);
+                };
+            } else {
+                populateEditForm(trainingData);
+            }
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        function populateEditForm(data) {
+            document.getElementById('edit-title').value = data.translations['zh-TW'].title;
+            document.getElementById('edit-content').value = data.translations['zh-TW'].content.join('\n');
+            document.getElementById('edit-date').value = data.records.training_date;
+            document.getElementById('edit-location').value = data.records.location || '';
+            
+            const container = document.getElementById('edit-trainees-container');
+            container.innerHTML = '';
+            // 確保編輯時若無資料則顯示空的輸入框
+            const trainees = data.records.trainees && data.records.trainees.length > 0 ? data.records.trainees : [{dept:'', id:'', name:''}];
+            trainees.forEach((t, index) => addEditTraineeRow(t));
+            lucide.createIcons();
+        }
+
+        function addEditTraineeRow(data = {dept: '', id: '', name: ''}) {
+            const container = document.getElementById('edit-trainees-container');
+            const row = document.createElement('div');
+            row.className = 'flex gap-2 items-center trainee-edit-row';
+            // 保持編輯輸入框為空白
+            row.innerHTML = `
+                <input type="text" placeholder="部門" class="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold trainee-dept" value="${data.dept || ''}">
+                <input type="text" placeholder="工號" class="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold trainee-id" value="${data.id || ''}">
+                <input type="text" placeholder="姓名" class="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold trainee-name" value="${data.name || ''}">
+                <button onclick="this.parentElement.remove()" class="p-2 text-slate-300 hover:text-red-500"><i data-lucide="x" class="w-4 h-4"></i></button>
+            `;
+            container.appendChild(row);
+            lucide.createIcons();
+        }
+
+        function saveEdit() {
+            const updatedTitle = document.getElementById('edit-title').value;
+            const updatedSteps = document.getElementById('edit-content').value.split('\n').filter(s => s.trim());
+            const updatedDate = document.getElementById('edit-date').value;
+            const updatedLocation = document.getElementById('edit-location').value;
+            
+            const traineeRows = document.querySelectorAll('.trainee-edit-row');
+            const updatedTrainees = Array.from(traineeRows).map(row => ({
+                dept: row.querySelector('.trainee-dept').value,
+                id: row.querySelector('.trainee-id').value,
+                name: row.querySelector('.trainee-name').value
+            }));
+
+            const updateAction = (targetData) => {
+                targetData.translations['zh-TW'].title = updatedTitle;
+                targetData.translations['zh-TW'].content = updatedSteps;
+                targetData.records.training_date = updatedDate;
+                targetData.records.location = updatedLocation;
+                targetData.records.trainees = updatedTrainees;
+                return targetData;
+            };
+
+            if (currentEditingId) {
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                store.get(currentEditingId).onsuccess = (e) => {
+                    const data = updateAction(e.target.result);
+                    store.put(data).onsuccess = () => {
+                        showToast("記錄已更新");
+                        closeEditModal();
+                        loadHistory();
+                    };
+                };
+            } else {
+                trainingData = updateAction(trainingData);
+                renderResult();
+                closeEditModal();
+                showToast("當前內容已暫存更新");
+            }
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+        }
+
+        function viewRecord(id) {
+            const transaction = db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            store.get(id).onsuccess = (e) => {
+                trainingData = e.target.result;
+                renderResult();
+            };
+        }
+
+        function deleteRecord(id) {
+            if (confirm("確定要刪除此筆記錄嗎？")) {
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                store.delete(id).onsuccess = () => {
+                    showToast("記錄已刪除");
+                    loadHistory();
+                };
+            }
+        }
+
+        function loadHistory() {
+            if (!db) return;
+            const transaction = db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const req = store.getAll();
+            req.onsuccess = () => {
+                const historyList = document.getElementById('history-list');
+                const records = req.result.reverse();
+                if (records.length === 0) {
+                    historyList.innerHTML = '<p class="text-xs text-slate-400 font-bold text-center py-4">暫無儲存記錄</p>';
+                    return;
+                }
+                historyList.innerHTML = records.map(record => `
+                    <div class="record-item group flex items-center justify-between p-3 bg-slate-50 hover:bg-white border border-transparent hover:border-slate-100 rounded-xl transition-all cursor-pointer" onclick="viewRecord(${record.id})">
+                        <div class="flex flex-col gap-0.5 overflow-hidden">
+                            <span class="text-xs font-black text-slate-800 truncate">${record.translations['zh-TW'].title}</span>
+                            <span class="text-[10px] text-slate-400 font-bold">${record.records.training_date}</span>
+                        </div>
+                        <div class="record-actions flex gap-1 ${isAdmin ? 'opacity-100' : 'opacity-0'}">
+                            ${isAdmin ? `
+                                <button onclick="event.stopPropagation(); openEditModal(${record.id})" class="p-1.5 text-slate-400 hover:text-blue-600 transition-colors">
+                                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                                </button>
+                                <button onclick="event.stopPropagation(); deleteRecord(${record.id})" class="p-1.5 text-slate-400 hover:text-red-600 transition-colors">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('');
+                lucide.createIcons();
+            };
+        }
+
+        function saveCurrentRecord() {
+            if (!trainingData) { showToast("無可儲存的資料"); return; }
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const record = { ...trainingData, timestamp: Date.now() };
+            store.add(record).onsuccess = () => { showToast("記錄已成功儲存"); loadHistory(); };
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        document.getElementById('admin-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeAdminModal();
+        });
+
+        document.getElementById('admin-password').addEventListener('keypress', (e) => { if (e.key === 'Enter') verifyAdmin(); });
+        
+        lucide.createIcons();
+        window.onload = () => { setMode('general'); };
+    </script>
+</body>
+</html>
