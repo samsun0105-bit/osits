@@ -527,7 +527,7 @@
                         <div class="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0 font-black text-sm">${idx + 1}</div>
                         <p class="text-slate-700 text-md leading-relaxed pt-1 font-bold tracking-tight">${step}</p>
                     </div>
-                    <button onclick="speakText('${step.replace(/'/g, "\\'")}', '${activeLang}')" class="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all shrink-0 no-print" title="播放此句語音">
+                    <button id="step-audio-btn-${idx}" onclick="toggleSpeak('${step.replace(/'/g, "\\'")}', '${activeLang}', ${idx})" class="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all shrink-0 no-print" title="播放此句語音">
                         <i data-lucide="volume-2" class="w-4 h-4"></i>
                     </button>
                 `;
@@ -715,25 +715,131 @@
             'id-ID': 'id-ID'
         };
 
-        function speakText(text, langCode) {
+        let currentSpeakingId = null;
+
+        function resetAllAudioButtons() {
+            const mainIcon = document.getElementById('tts-icon');
+            if (mainIcon) {
+                mainIcon.setAttribute('data-lucide', 'volume-2');
+            }
+            const mainText = document.querySelector('#tts-btn span');
+            if (mainText) {
+                mainText.innerText = '播放語音';
+            }
+
+            const stepButtons = document.querySelectorAll('[id^="step-audio-btn-"]');
+            stepButtons.forEach(btn => {
+                const icon = btn.querySelector('i');
+                if (icon) {
+                    icon.setAttribute('data-lucide', 'volume-2');
+                }
+            });
+            lucide.createIcons();
+        }
+
+        function getBestVoice(locale) {
+            const voices = window.speechSynthesis.getVoices();
+            const normalizedLocale = locale.toLowerCase().replace('_', '-');
+            
+            // 1. 完全比對 (例如: fil-PH, vi-VN, id-ID)
+            let voice = voices.find(v => v.lang.toLowerCase().replace('_', '-') === normalizedLocale);
+            
+            // 2. 針對菲律賓語 (Tagalog / Filipino) 相容性特殊對應
+            if (!voice && (normalizedLocale === 'fil-ph' || normalizedLocale === 'tl-ph')) {
+                voice = voices.find(v => {
+                    const l = v.lang.toLowerCase();
+                    return l.startsWith('fil') || l.startsWith('tl');
+                });
+            }
+            
+            // 3. 語系前綴比對 (當系統發音人不具備細分國碼時)
+            if (!voice) {
+                const prefix = normalizedLocale.split('-')[0];
+                voice = voices.find(v => v.lang.toLowerCase().startsWith(prefix));
+            }
+            
+            return voice;
+        }
+
+        function updateButtonUI(id, state) {
+            resetAllAudioButtons();
+            
+            const isMain = (id === 'main-title');
+            if (isMain) {
+                const mainIcon = document.getElementById('tts-icon');
+                const mainText = document.querySelector('#tts-btn span');
+                if (state === 'playing') {
+                    if (mainIcon) mainIcon.setAttribute('data-lucide', 'pause');
+                    if (mainText) mainText.innerText = '暫停播放';
+                } else if (state === 'paused') {
+                    if (mainIcon) mainIcon.setAttribute('data-lucide', 'play');
+                    if (mainText) mainText.innerText = '恢復播放';
+                }
+            } else {
+                const stepBtn = document.getElementById(`step-audio-btn-${id}`);
+                if (stepBtn) {
+                    const icon = stepBtn.querySelector('i');
+                    if (icon) {
+                        if (state === 'playing') {
+                            icon.setAttribute('data-lucide', 'pause');
+                        } else if (state === 'paused') {
+                            icon.setAttribute('data-lucide', 'play');
+                        }
+                    }
+                }
+            }
+            lucide.createIcons();
+        }
+
+        function toggleSpeak(text, langCode, id) {
             if (!('speechSynthesis' in window)) {
                 showToast("您的瀏覽器不支援語音播放功能");
                 return;
             }
-            // 取消目前正在播放的所有語音
-            window.speechSynthesis.cancel();
 
+            // 處理正在撥放的語音狀態控制
+            if (window.speechSynthesis.speaking) {
+                if (currentSpeakingId === id) {
+                    if (window.speechSynthesis.paused) {
+                        window.speechSynthesis.resume();
+                        updateButtonUI(id, 'playing');
+                    } else {
+                        window.speechSynthesis.pause();
+                        updateButtonUI(id, 'paused');
+                    }
+                    return;
+                } else {
+                    // 若切換新段落，先停止目前語音並重設所有按鈕
+                    window.speechSynthesis.cancel();
+                    resetAllAudioButtons();
+                }
+            }
+
+            currentSpeakingId = id;
             const utterance = new SpeechSynthesisUtterance(text);
             const locale = voiceLocales[langCode] || langCode;
             utterance.lang = locale;
 
-            // 尋找系統最匹配的語言發音人
-            const voices = window.speechSynthesis.getVoices();
-            const matchingVoice = voices.find(v => v.lang.startsWith(locale));
-            if (matchingVoice) {
-                utterance.voice = matchingVoice;
+            // 智慧載入對應發音人
+            const voice = getBestVoice(locale);
+            if (voice) {
+                utterance.voice = voice;
             }
-            
+
+            utterance.onstart = () => {
+                updateButtonUI(id, 'playing');
+            };
+
+            utterance.onend = () => {
+                resetAllAudioButtons();
+                currentSpeakingId = null;
+            };
+
+            utterance.onerror = () => {
+                resetAllAudioButtons();
+                currentSpeakingId = null;
+            };
+
             window.speechSynthesis.speak(utterance);
         }
 
@@ -742,9 +848,8 @@
             const currentContent = trainingData.translations[activeLang];
             if (!currentContent) return;
             
-            // 播放整篇標題與內文
-            const fullText = currentContent.title + "。 " + currentContent.content.join("。 ");
-            speakText(fullText, activeLang);
+            // 語音播放功能改為點擊單句，不再連續播放完整文本；右上按鈕改為單獨控制標題
+            toggleSpeak(currentContent.title, activeLang, 'main-title');
         }
 
         function showToast(msg) {
@@ -760,6 +865,14 @@
 
         document.getElementById('admin-password').addEventListener('keypress', (e) => { if (e.key === 'Enter') verifyAdmin(); });
         
+        // 確保在瀏覽器載入後語音引擎就緒
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.getVoices();
+            window.speechSynthesis.onvoiceschanged = () => {
+                window.speechSynthesis.getVoices();
+            };
+        }
+
         lucide.createIcons();
         window.onload = () => { setMode('general'); };
     </script>
