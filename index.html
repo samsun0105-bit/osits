@@ -722,6 +722,80 @@
             store.add(record).onsuccess = () => { showToast("記錄已成功儲存"); loadHistory(); };
         }
 
+        function exportDatabase() {
+            if (!db) {
+                showToast("數據庫未就緒");
+                return;
+            }
+            const transaction = db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const req = store.getAll();
+
+            req.onsuccess = (e) => {
+                const records = e.target.result;
+                const dataStr = JSON.stringify(records, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+                const tempLink = document.createElement('a');
+                tempLink.href = url;
+                tempLink.download = `GlobalGuard_Backup_${dateStr}.json`;
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                document.body.removeChild(tempLink);
+                URL.revokeObjectURL(url);
+                showToast("數據庫已成功導出");
+            };
+
+            req.onerror = () => {
+                showToast("導出數據庫失敗");
+            };
+        }
+
+        function importDatabase(event) {
+            if (!db) {
+                showToast("數據庫未就緒");
+                return;
+            }
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const records = JSON.parse(e.target.result);
+                    if (!Array.isArray(records)) {
+                        showToast("無效的備份檔案格式");
+                        return;
+                    }
+
+                    const transaction = db.transaction([STORE_NAME], 'readwrite');
+                    const store = transaction.objectStore(STORE_NAME);
+
+                    let successCount = 0;
+                    records.forEach(record => {
+                        store.put(record);
+                        successCount++;
+                    });
+
+                    transaction.oncomplete = () => {
+                        showToast(`成功導入 ${successCount} 筆記錄`);
+                        loadHistory();
+                        event.target.value = '';
+                    };
+
+                    transaction.onerror = () => {
+                        showToast("導入數據庫失敗");
+                    };
+
+                } catch (err) {
+                    showToast("解析備份檔案失敗");
+                }
+            };
+            reader.readAsText(file);
+        }
+
         const voiceLocales = {
             'zh-TW': 'zh-TW',
             'en-US': 'en-US',
