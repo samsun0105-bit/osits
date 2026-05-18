@@ -192,7 +192,7 @@
                     <div class="bg-slate-900 p-10 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden text-left print-area">
                         <div class="relative z-10">
                             <div class="flex justify-between items-center mb-8">
-                                <h3 class="text-lg font-black flex items-center gap-3 uppercase tracking-tight">
+                                <h3 class="text-sm font-bold flex items-center gap-3 uppercase tracking-[0.2em] text-slate-300">
                                     <i data-lucide="user-check" class="w-5 h-5 text-blue-400"></i>
                                     教育訓練記錄 TRAINING RECORD
                                 </h3>
@@ -200,19 +200,19 @@
                             </div>
                             <div class="grid grid-cols-2 gap-4 mb-8 font-bold">
                                 <div class="bg-white/5 p-4 rounded-xl border border-white/10">
-                                    <span class="text-slate-400 text-[10px] block mb-1 font-black uppercase">訓練日期</span>
+                                    <span class="text-slate-400 text-[10px] block mb-1 font-black uppercase">訓練日期 (TRAINING DATE)</span>
                                     <span id="display-date" class="text-md"></span>
                                 </div>
                                 <div class="bg-white/5 p-4 rounded-xl border border-white/10">
-                                    <span class="text-slate-400 text-[10px] block mb-1 font-black uppercase">位置</span>
+                                    <span class="text-slate-400 text-[10px] block mb-1 font-black uppercase">位置 (LOCATION)</span>
                                     <span id="display-location" class="text-md"></span>
                                 </div>
                                 <div class="bg-white/5 p-4 rounded-xl border border-white/10">
-                                    <span class="text-slate-400 text-[10px] block mb-1 font-black uppercase">訓練講師</span>
+                                    <span class="text-slate-400 text-[10px] block mb-1 font-black uppercase">訓練講師 (TRAINER)</span>
                                     <span id="display-instructor" class="text-md"></span>
                                 </div>
                                 <div class="bg-white/5 p-4 rounded-xl border border-white/10">
-                                    <span class="text-slate-400 text-[10px] block mb-1 font-black uppercase">宣導人數</span>
+                                    <span class="text-slate-400 text-[10px] block mb-1 font-black uppercase">宣導人數 (ATTENDEES)</span>
                                     <span id="display-trainee-count" class="text-md"></span>
                                 </div>
                             </div>
@@ -285,21 +285,21 @@
             <div class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">訓練日期 (TRAINING DATE)</label>
+                        <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">訓練日期</label>
                         <input type="date" id="edit-date" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none">
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">位置 (LOCATION)</label>
+                        <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">位置</label>
                         <input type="text" id="edit-location" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none" placeholder="輸入區域名稱">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">訓練講師 (TRAINER)</label>
+                        <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">訓練講師</label>
                         <input type="text" id="edit-instructor" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none" placeholder="輸入講師姓名">
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">宣導人數 (ATTENDEES)</label>
+                        <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">宣導人數</label>
                         <input type="text" id="edit-trainee-count" class="w-full p-3 bg-slate-100 border border-slate-200 rounded-xl font-bold outline-none text-slate-500" readonly>
                     </div>
                 </div>
