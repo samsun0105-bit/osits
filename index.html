@@ -480,7 +480,8 @@
 
             const systemPrompt = `你是一位專業的工廠職安經理。規則：
             1. ${currentMode === 'general' ? '精確翻譯輸入文字，不額外增加法規或步驟。' : '智慧補強職安法規與標準作業程序。'}
-            2. 輸出 JSON 格式：{"topic":"...","translations":{"zh-TW":{"title":"...","content":["..."],"warning":"..."},"en-US":{...},"tl-PH":{...},"vi-VN":{...},"id-ID":{...}},"records":{"training_date":"${new Date().toISOString().split('T')[0]}","location":"","trainees":[{"dept":"","id":"","name":""},{"dept":"","id":"","name":""},{"dept":"","id":"","name":""}]}}`;
+            2. 輸出 JSON 格式：{"topic":"...","translations":{"zh-TW":{"title":"...","content":["..."],"warning":"..."},"en-US":{...},"tl-PH":{...},"vi-VN":{...},"id-ID":{...}},"records":{"training_date":"${new Date().toISOString().split('T')[0]}","location":"","trainees":[{"dept":"","id":"","name":""},{"dept":"","id":"","name":""},{"dept":"","id":"","name":""}]}}
+            3. 特別警告：教育訓練記錄（records）內容中的廠區位置（location）、部門（dept）、工號（id）、以及姓名（name）必須完全保持為空字串 ""，絕對不要填入任何預設或模擬文字。`;
 
             try {
                 const response = await fetch(apiUrl, {
