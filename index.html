@@ -106,10 +106,10 @@
                                     <i data-lucide="image-plus" class="w-6 h-6 text-blue-600"></i>
                                 </div>
                                 <p class="text-xs font-black text-slate-700 mb-1">拍照、點擊或拖拽圖片</p>
-                                <p class="text-[10px] text-slate-400 font-bold">支援 JPG, PNG, WEBP</p>
+                                <p class="text-[10px] text-slate-400 font-bold">支援 JPG, PNG, PDF, WEBP</p>
                             </div>
                             <img id="photo-preview" class="hidden w-full h-full object-cover rounded-xl" src="" alt="Preview">
-                            <input type="file" id="file-input" class="hidden" accept="image/*" capture="environment">
+                            <input type="file" id="file-input" class="hidden" accept="image/*,application/pdf">
                         </div>
                     </div>
                     
@@ -470,7 +470,7 @@
             const btn = document.getElementById('generate-btn');
             const btnText = document.getElementById('btn-text');
             const inputVal = document.getElementById('main-input').value;
-            if ((currentMode !== 'photo' && !inputVal) || (currentMode === 'photo' && !document.getElementById('photo-preview').src)) return;
+            if ((currentMode !== 'photo' && !inputVal) || (currentMode === 'photo' && !uploadedFileBase64 && !document.getElementById('photo-preview').src)) return;
 
             btn.disabled = true;
             btnText.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> 處理中...';
@@ -483,6 +483,9 @@
             2. 輸出 JSON 格式：{"topic":"...","translations":{"zh-TW":{"title":"...","content":["..."],"warning":"..."},"en-US":{...},"tl-PH":{...},"vi-VN":{...},"id-ID":{...}},"records":{"training_date":"${new Date().toISOString().split('T')[0]}","location":"","trainees":[{"dept":"","id":"","name":""},{"dept":"","id":"","name":""},{"dept":"","id":"","name":""}]}}
             3. 特別警告：教育訓練記錄（records）內容中的廠區位置（location）、部門（dept）、工號（id）、以及姓名（name）必須完全保持為空字串 ""，絕對不要填入任何預設或模擬文字。`;
 
+            const mimeType = uploadedFileMimeType || "image/jpeg";
+            const fileData = uploadedFileBase64 || document.getElementById('photo-preview').src.split(',')[1];
+
             try {
                 const response = await fetch(apiUrl, {
                     method: 'POST',
@@ -490,8 +493,8 @@
                     body: JSON.stringify({
                         contents: [{ 
                             parts: [
-                                { text: currentMode === 'photo' ? "分析照片職安內容" : inputVal },
-                                ...(currentMode === 'photo' ? [{ inline_data: { mime_type: "image/jpeg", data: document.getElementById('photo-preview').src.split(',')[1] } }] : [])
+                                { text: currentMode === 'photo' ? "分析照片或文件職安內容" : inputVal },
+                                ...(currentMode === 'photo' ? [{ inline_data: { mime_type: mimeType, data: fileData } }] : [])
                             ] 
                         }],
                         generationConfig: { responseMimeType: "application/json" },
@@ -894,6 +897,126 @@
 
         document.getElementById('admin-password').addEventListener('keypress', (e) => { if (e.key === 'Enter') verifyAdmin(); });
         
+        let uploadedFileBase64 = null;
+        let uploadedFileMimeType = null;
+
+        function initUploadListeners() {
+            const dropZone = document.getElementById('drop-zone');
+            const fileInput = document.getElementById('file-input');
+            const preview = document.getElementById('photo-preview');
+            const placeholder = document.getElementById('photo-placeholder');
+
+            if (!dropZone || !fileInput) return;
+
+            // 點擊觸發選擇檔案
+            dropZone.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            // 拖曳視覺反饋
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.classList.add('border-blue-500', 'bg-blue-50/50');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.classList.remove('border-blue-500', 'bg-blue-50/50');
+                }, false);
+            });
+
+            // 放開拖曳檔案
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            }, false);
+
+            // 選擇檔案更動
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFile(e.target.files[0]);
+                }
+            });
+
+            function handleFile(file) {
+                const reader = new FileReader();
+                const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+                if (!validTypes.includes(file.type)) {
+                    showToast("未支援的檔案格式，請上傳 JPG、PNG、PDF 或 WEBP 檔案。");
+                    return;
+                }
+
+                uploadedFileMimeType = file.type;
+
+                reader.onload = function(e) {
+                    const result = e.target.result;
+                    uploadedFileBase64 = result.split(',')[1];
+                    
+                    placeholder.classList.add('hidden');
+                    preview.classList.remove('hidden');
+
+                    if (file.type === 'application/pdf') {
+                        // 使用 Canvas 動態產生 PDF 預覽卡片
+                        preview.src = createPdfPlaceholder(file.name);
+                    } else {
+                        preview.src = result;
+                    }
+                    showToast("檔案已成功載入！");
+                };
+
+                reader.readAsDataURL(file);
+            }
+
+            function createPdfPlaceholder(fileName) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 400;
+                canvas.height = 300;
+                const ctx = canvas.getContext('2d');
+                
+                // 背景
+                ctx.fillStyle = '#f8fafc';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // PDF 圖示紅色底
+                ctx.fillStyle = '#ef4444';
+                if (ctx.roundRect) {
+                    ctx.beginPath();
+                    ctx.roundRect(160, 60, 80, 100, 12);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(160, 60, 80, 100);
+                }
+                
+                // "PDF" 文字
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '900 24px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('PDF', 200, 110);
+                
+                // 檔案名稱
+                ctx.fillStyle = '#334155';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textBaseline = 'alphabetic';
+                ctx.fillText(fileName.length > 25 ? fileName.substring(0, 22) + '...' : fileName, 200, 200);
+                
+                // 輔助標籤
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = 'bold 11px sans-serif';
+                ctx.fillText('PDF 文件已載入', 200, 230);
+                
+                return canvas.toDataURL('image/png');
+            }
+        }
+
         // 確保在瀏覽器載入後語音引擎就緒
         if ('speechSynthesis' in window) {
             window.speechSynthesis.getVoices();
@@ -903,7 +1026,10 @@
         }
 
         lucide.createIcons();
-        window.onload = () => { setMode('general'); };
+        window.onload = () => { 
+            setMode('general'); 
+            initUploadListeners();
+        };
     </script>
 
     <footer class="bg-slate-100 border-t border-slate-200 p-6 mt-8">
