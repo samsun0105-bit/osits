@@ -722,6 +722,69 @@
             store.add(record).onsuccess = () => { showToast("記錄已成功儲存"); loadHistory(); };
         }
 
+        function exportDatabase() {
+            if (!db) {
+                showToast("數據庫尚未準備就緒");
+                return;
+            }
+            const transaction = db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const req = store.getAll();
+            req.onsuccess = () => {
+                const data = req.result;
+                const jsonString = JSON.stringify(data, null, 2);
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `GlobalGuard_Backup_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast("數據庫已成功導出備份！");
+            };
+            req.onerror = () => {
+                showToast("導出數據庫失敗");
+            };
+        }
+
+        function importDatabase(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!Array.isArray(data)) {
+                        showToast("備份檔案格式不正確");
+                        return;
+                    }
+
+                    const transaction = db.transaction([STORE_NAME], 'readwrite');
+                    const store = transaction.objectStore(STORE_NAME);
+
+                    data.forEach(item => {
+                        store.put(item);
+                    });
+
+                    transaction.oncomplete = () => {
+                        showToast(`成功導入 ${data.length} 筆記錄！`);
+                        loadHistory();
+                        event.target.value = ''; // 重置 input 檔案
+                    };
+                    
+                    transaction.onerror = () => {
+                        showToast("導入數據時發生錯誤");
+                    };
+                } catch (err) {
+                    showToast("解析備份檔案失敗，請確保是正確的 JSON 格式");
+                }
+            };
+            reader.readAsText(file);
+        }
+
         const voiceLocales = {
             'zh-TW': 'zh-TW',
             'en-US': 'en-US',
