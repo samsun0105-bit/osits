@@ -461,8 +461,8 @@
             btnText.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> 處理中...';
             lucide.createIcons();
 
-            const apiKey = ""; 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            const apiUrl = "/api/generate";
 
             const systemPrompt = `你是一位專業的工廠職安經理。規則：
             1. ${currentMode === 'general' ? '精確翻譯輸入文字，不額外增加法規或步驟。' : '智慧補強職安法規與標準作業程序。'}
