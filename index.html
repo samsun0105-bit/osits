@@ -324,6 +324,8 @@
         let trainingData = null;
         let activeLang = 'zh-TW';
         let audioUrls = {};
+        
+        let currentPlayingIndex = null; // 紀錄目前正在播放的單句索引
 
         const SUPPORTED_LANGS = [
             { code: 'zh-TW', name: '繁體中文', flag: '🇹🇼', voice: 'Kore' },
@@ -527,7 +529,7 @@
                         <div class="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0 font-black text-sm">${idx + 1}</div>
                         <p class="text-slate-700 text-md leading-relaxed pt-1 font-bold tracking-tight">${step}</p>
                     </div>
-                    <button id="step-audio-btn-${idx}" onclick="toggleSpeak('${step.replace(/'/g, "\\'")}', '${activeLang}', ${idx})" class="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all shrink-0 no-print" title="播放此句語音">
+                    <button id="step-play-btn-${idx}" onclick="speakText('${step.replace(/'/g, "\\'")}', '${activeLang}', ${idx})" class="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all shrink-0 no-print" title="播放此句語音">
                         <i data-lucide="volume-2" class="w-4 h-4"></i>
                     </button>
                 `;
@@ -552,6 +554,8 @@
                 traineeTable.appendChild(row);
             });
 
+            // 每次重新渲染結果時，重設全域播放控制按鈕狀態
+            updateTtsBtnState(false);
             lucide.createIcons();
         }
 
@@ -710,146 +714,177 @@
         const voiceLocales = {
             'zh-TW': 'zh-TW',
             'en-US': 'en-US',
-            'tl-PH': 'fil-PH',
+            'tl-PH': 'fil-PH', // 優先使用標準 BCP-47 菲律賓語代碼
             'vi-VN': 'vi-VN',
             'id-ID': 'id-ID'
         };
 
-        let currentSpeakingId = null;
-
-        function resetAllAudioButtons() {
-            const mainIcon = document.getElementById('tts-icon');
-            if (mainIcon) {
-                mainIcon.setAttribute('data-lucide', 'volume-2');
-            }
-            const mainText = document.querySelector('#tts-btn span');
-            if (mainText) {
-                mainText.innerText = '播放語音';
-            }
-
-            const stepButtons = document.querySelectorAll('[id^="step-audio-btn-"]');
-            stepButtons.forEach(btn => {
-                const icon = btn.querySelector('i');
-                if (icon) {
-                    icon.setAttribute('data-lucide', 'volume-2');
-                }
-            });
-            lucide.createIcons();
-        }
-
-        function getBestVoice(locale) {
-            const voices = window.speechSynthesis.getVoices();
-            const normalizedLocale = locale.toLowerCase().replace('_', '-');
-            
-            // 1. 完全比對 (例如: fil-PH, vi-VN, id-ID)
-            let voice = voices.find(v => v.lang.toLowerCase().replace('_', '-') === normalizedLocale);
-            
-            // 2. 針對菲律賓語 (Tagalog / Filipino) 相容性特殊對應
-            if (!voice && (normalizedLocale === 'fil-ph' || normalizedLocale === 'tl-ph')) {
-                voice = voices.find(v => {
-                    const l = v.lang.toLowerCase();
-                    return l.startsWith('fil') || l.startsWith('tl');
-                });
-            }
-            
-            // 3. 語系前綴比對 (當系統發音人不具備細分國碼時)
-            if (!voice) {
-                const prefix = normalizedLocale.split('-')[0];
-                voice = voices.find(v => v.lang.toLowerCase().startsWith(prefix));
-            }
-            
-            return voice;
-        }
-
-        function updateButtonUI(id, state) {
-            resetAllAudioButtons();
-            
-            const isMain = (id === 'main-title');
-            if (isMain) {
-                const mainIcon = document.getElementById('tts-icon');
-                const mainText = document.querySelector('#tts-btn span');
-                if (state === 'playing') {
-                    if (mainIcon) mainIcon.setAttribute('data-lucide', 'pause');
-                    if (mainText) mainText.innerText = '暫停播放';
-                } else if (state === 'paused') {
-                    if (mainIcon) mainIcon.setAttribute('data-lucide', 'play');
-                    if (mainText) mainText.innerText = '恢復播放';
-                }
-            } else {
-                const stepBtn = document.getElementById(`step-audio-btn-${id}`);
-                if (stepBtn) {
-                    const icon = stepBtn.querySelector('i');
-                    if (icon) {
-                        if (state === 'playing') {
-                            icon.setAttribute('data-lucide', 'pause');
-                        } else if (state === 'paused') {
-                            icon.setAttribute('data-lucide', 'play');
-                        }
-                    }
-                }
-            }
-            lucide.createIcons();
-        }
-
-        function toggleSpeak(text, langCode, id) {
+        function speakText(text, langCode, idx = null) {
             if (!('speechSynthesis' in window)) {
                 showToast("您的瀏覽器不支援語音播放功能");
                 return;
             }
 
-            // 處理正在撥放的語音狀態控制
-            if (window.speechSynthesis.speaking) {
-                if (currentSpeakingId === id) {
-                    if (window.speechSynthesis.paused) {
-                        window.speechSynthesis.resume();
-                        updateButtonUI(id, 'playing');
-                    } else {
-                        window.speechSynthesis.pause();
-                        updateButtonUI(id, 'paused');
-                    }
-                    return;
+            // 【新增：單句暫停與恢復邏輯】
+            if (idx !== null && currentPlayingIndex === idx && window.speechSynthesis.speaking) {
+                if (window.speechSynthesis.paused) {
+                    window.speechSynthesis.resume();
+                    updateSinglePlayIcon(idx, true);
+                    updateTtsBtnState(false);
+                    showToast("繼續播放語音");
                 } else {
-                    // 若切換新段落，先停止目前語音並重設所有按鈕
-                    window.speechSynthesis.cancel();
-                    resetAllAudioButtons();
+                    window.speechSynthesis.pause();
+                    updateSinglePlayIcon(idx, false);
+                    updateTtsBtnState(true);
+                    showToast("已暫停播放");
+                }
+                return;
+            }
+
+            // 播放新句子前，先取消當前所有語音
+            window.speechSynthesis.cancel();
+            if (currentPlayingIndex !== null) {
+                updateSinglePlayIcon(currentPlayingIndex, false);
+            }
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            
+            // 強化菲律賓語、越南語、印尼語的多代碼相容性（以應對不同作業系統與瀏覽器發音人命名差異）
+            const localesMap = {
+                'zh-TW': ['zh-TW', 'zh-HK', 'zh-CN'],
+                'en-US': ['en-US', 'en-GB'],
+                'tl-PH': ['fil-PH', 'tl-PH', 'fil', 'tl'],  // 加強菲律賓語相容驗證
+                'vi-VN': ['vi-VN', 'vi_VN', 'vi'],          // 加強越南語相容驗證
+                'id-ID': ['id-ID', 'id_ID', 'id']           // 加強印尼語相容驗證
+            };
+
+            const candidateLocales = localesMap[langCode] || [langCode];
+            utterance.lang = candidateLocales[0]; // 設定預設 BCP-47 代碼
+
+            // 尋找最相容的本地系統發音人
+            const voices = window.speechSynthesis.getVoices();
+            let matchedVoice = null;
+
+            // 1. 精準完整匹配
+            for (const loc of candidateLocales) {
+                matchedVoice = voices.find(v => v.lang.toLowerCase().replace('_', '-') === loc.toLowerCase());
+                if (matchedVoice) break;
+            }
+
+            // 2. 模糊字首匹配（僅比對前兩碼，如 "vi" 或 "id"）
+            if (!matchedVoice) {
+                for (const loc of candidateLocales) {
+                    const prefix = loc.split('-')[0].toLowerCase();
+                    matchedVoice = voices.find(v => v.lang.toLowerCase().startsWith(prefix));
+                    if (matchedVoice) break;
                 }
             }
 
-            currentSpeakingId = id;
-            const utterance = new SpeechSynthesisUtterance(text);
-            const locale = voiceLocales[langCode] || langCode;
-            utterance.lang = locale;
-
-            // 智慧載入對應發音人
-            const voice = getBestVoice(locale);
-            if (voice) {
-                utterance.voice = voice;
+            if (matchedVoice) {
+                utterance.voice = matchedVoice;
             }
 
+            // 微微放慢語速（0.95倍速），讓外籍移工聽得更清晰，提昇職安宣導效果
+            utterance.rate = 0.95;
+
+            // 綁定語音事件
             utterance.onstart = () => {
-                updateButtonUI(id, 'playing');
+                currentPlayingIndex = idx;
+                if (idx !== null) {
+                    updateSinglePlayIcon(idx, true);
+                }
+                updateTtsBtnState(false);
             };
 
             utterance.onend = () => {
-                resetAllAudioButtons();
-                currentSpeakingId = null;
+                if (idx !== null) {
+                    updateSinglePlayIcon(idx, false);
+                }
+                currentPlayingIndex = null;
+                updateTtsBtnState(false);
             };
 
             utterance.onerror = () => {
-                resetAllAudioButtons();
-                currentSpeakingId = null;
+                if (idx !== null) {
+                    updateSinglePlayIcon(idx, false);
+                }
+                currentPlayingIndex = null;
+                updateTtsBtnState(false);
             };
 
             window.speechSynthesis.speak(utterance);
         }
 
-        function playAudio() {
-            if (!trainingData) return;
-            const currentContent = trainingData.translations[activeLang];
-            if (!currentContent) return;
+        // 【新增：更新單句播放按鈕 UI 狀態】
+        function updateSinglePlayIcon(idx, isPlaying) {
+            const btn = document.getElementById(`step-play-btn-${idx}`);
+            if (!btn) return;
             
-            // 語音播放功能改為點擊單句，不再連續播放完整文本；右上按鈕改為單獨控制標題
-            toggleSpeak(currentContent.title, activeLang, 'main-title');
+            if (isPlaying) {
+                btn.innerHTML = `<i data-lucide="pause" class="w-4 h-4 text-amber-600 animate-pulse"></i>`;
+                btn.className = "p-2.5 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition-all shrink-0 no-print";
+                btn.title = "暫停播放此句";
+            } else {
+                btn.innerHTML = `<i data-lucide="volume-2" class="w-4 h-4"></i>`;
+                btn.className = "p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all shrink-0 no-print";
+                btn.title = "播放此句語音";
+            }
+            lucide.createIcons();
+        }
+
+        // 【新增：全域播放控制按鈕狀態同步】
+        function updateTtsBtnState(isPausedState) {
+            const ttsIcon = document.getElementById('tts-icon');
+            const ttsBtn = document.getElementById('tts-btn');
+            if (!ttsIcon || !ttsBtn) return;
+
+            if (window.speechSynthesis.speaking) {
+                if (isPausedState || window.speechSynthesis.paused) {
+                    ttsIcon.setAttribute('data-lucide', 'play');
+                    ttsBtn.querySelector('span').innerText = "恢復播放";
+                    ttsBtn.className = "p-3 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition-all flex items-center gap-2";
+                } else {
+                    ttsIcon.setAttribute('data-lucide', 'pause');
+                    ttsBtn.querySelector('span').innerText = "暫停播放";
+                    ttsBtn.className = "p-3 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition-all flex items-center gap-2";
+                }
+            } else {
+                ttsIcon.setAttribute('data-lucide', 'volume-2');
+                ttsBtn.querySelector('span').innerText = "播放語音";
+                ttsBtn.className = "p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all flex items-center gap-2";
+            }
+            lucide.createIcons();
+        }
+
+        // 【修改：大按鈕改為暫停/恢復控制器，或在靜止時播放第一句】
+        function playAudio() {
+            if (!('speechSynthesis' in window)) return;
+            
+            if (window.speechSynthesis.speaking) {
+                if (window.speechSynthesis.paused) {
+                    window.speechSynthesis.resume();
+                    if (currentPlayingIndex !== null) {
+                        updateSinglePlayIcon(currentPlayingIndex, true);
+                    }
+                    updateTtsBtnState(false);
+                    showToast("繼續播放語音");
+                } else {
+                    window.speechSynthesis.pause();
+                    if (currentPlayingIndex !== null) {
+                        updateSinglePlayIcon(currentPlayingIndex, false);
+                    }
+                    updateTtsBtnState(true);
+                    showToast("已暫停播放");
+                }
+            } else {
+                // 如果目前沒有播放任何單句，預設直接播第一句
+                if (trainingData) {
+                    const currentContent = trainingData.translations[activeLang];
+                    if (currentContent && currentContent.content.length > 0) {
+                        speakText(currentContent.content[0], activeLang, 0);
+                    }
+                }
+            }
         }
 
         function showToast(msg) {
@@ -865,14 +900,11 @@
 
         document.getElementById('admin-password').addEventListener('keypress', (e) => { if (e.key === 'Enter') verifyAdmin(); });
         
-        // 確保在瀏覽器載入後語音引擎就緒
+        // 預先對語音系統進行暖機
         if ('speechSynthesis' in window) {
             window.speechSynthesis.getVoices();
-            window.speechSynthesis.onvoiceschanged = () => {
-                window.speechSynthesis.getVoices();
-            };
         }
-
+        
         lucide.createIcons();
         window.onload = () => { setMode('general'); };
     </script>
