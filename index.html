@@ -589,10 +589,20 @@
             
             const traineeTable = document.getElementById('display-trainees');
             traineeTable.innerHTML = '';
-            const trainees = trainingData.records.trainees || [];
-            document.getElementById('display-trainee-count').innerText = trainees.length > 0 ? `${trainees.length} 人` : '0 人';
+const trainees = trainingData.records.trainees || [];
+
+// 只統計有填寫資料的人員
+const validTrainees = trainees.filter(t =>
+    (t.dept && t.dept.trim() !== '') ||
+    (t.id && t.id.trim() !== '') ||
+    (t.name && t.name.trim() !== '')
+);
+
+// 有資料才顯示人數，否則空白
+document.getElementById('display-trainee-count').innerText =
+    validTrainees.length > 0 ? `${validTrainees.length} 人` : '';
             
-            trainees.forEach(t => {
+            validTrainees.forEach(t => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td class="px-6 py-4">${t.dept || ''}</td>
@@ -636,13 +646,27 @@
             lucide.createIcons();
         }
 
-        function updateEditTraineeCount() {
-            const count = document.querySelectorAll('.trainee-edit-row').length;
-            const countInput = document.getElementById('edit-trainee-count');
-            if (countInput) {
-                countInput.value = `${count} 人`;
-            }
+function updateEditTraineeCount() {
+    const rows = document.querySelectorAll('.trainee-edit-row');
+
+    let count = 0;
+
+    rows.forEach(row => {
+        const dept = row.querySelector('.trainee-dept').value.trim();
+        const id = row.querySelector('.trainee-id').value.trim();
+        const name = row.querySelector('.trainee-name').value.trim();
+
+        if (dept || id || name) {
+            count++;
         }
+    });
+
+    const countInput = document.getElementById('edit-trainee-count');
+
+    if (countInput) {
+        countInput.value = count > 0 ? `${count} 人` : '';
+    }
+}
 
         function addEditTraineeRow(data = {dept: '', id: '', name: ''}) {
             const container = document.getElementById('edit-trainees-container');
