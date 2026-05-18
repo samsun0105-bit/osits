@@ -501,11 +501,23 @@
                         systemInstruction: { parts: [{ text: systemPrompt }] }
                     })
                 });
-                const result = await response.json();
-                trainingData = JSON.parse(result.candidates[0].content.parts[0].text);
-                renderResult();
+const result = await response.json();
+
+if (!response.ok) {
+    if (response.status === 429) {
+        throw new Error("AI 使用量暫時過高，請稍後再試");
+    }
+    throw new Error(result.error || result.message || "AI API 回應失敗");
+}
+
+if (!result.candidates || !result.candidates[0]?.content?.parts?.[0]?.text) {
+    throw new Error("AI 回傳格式異常，請稍後再試");
+}
+
+trainingData = JSON.parse(result.candidates[0].content.parts[0].text);
+renderResult();
             } catch (error) {
-                showToast("連線失敗，請檢查網路。");
+                showToast(error.message || "連線失敗，請檢查網路。");
             } finally {
                 btn.disabled = false;
                 setMode(currentMode); // 恢復按鈕文字
