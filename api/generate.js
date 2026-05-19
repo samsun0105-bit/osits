@@ -1,3 +1,22 @@
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function fetchWithRetry(url, options, maxRetries = 3) {
+  for (let i = 0; i <= maxRetries; i++) {
+    const response = await fetch(url, options);
+    const data = await response.json();
+
+    if (response.ok) {
+      return { response, data };
+    }
+
+    if (response.status === 429 && i < maxRetries) {
+      await sleep(1000 * (i + 1));
+      continue;
+    }
+
+    return { response, data };
+  }
+}
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -17,15 +36,14 @@ export default async function handler(req, res) {
     const apiUrl =
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(req.body)
-    });
+const { response, data } = await fetchWithRetry(apiUrl, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify(req.body)
+});
 
-    const data = await response.json();
 
     if (!response.ok) {
       return res.status(response.status).json({
