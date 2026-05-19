@@ -357,6 +357,7 @@
         let trainingData = null;
         let activeLang = 'zh-TW';
         let audioUrls = {};
+        let isGenerating = false;
 
         const SUPPORTED_LANGS = [
             { code: 'zh-TW', name: '繁體中文', flag: '🇹🇼', voice: 'Kore' },
@@ -484,11 +485,22 @@
             lucide.createIcons();
         }
 
-        async function generateTrainingSuite() {
+async function generateTrainingSuite() {
+    if (isGenerating) return;
+    isGenerating = true;
             const btn = document.getElementById('generate-btn');
             const btnText = document.getElementById('btn-text');
             const inputVal = document.getElementById('main-input').value;
-            if ((currentMode !== 'photo' && !inputVal) || (currentMode === 'photo' && !uploadedFileBase64 && !document.getElementById('photo-preview').src)) return;
+const currentInputKey = currentMode + ':' + inputVal + ':' + uploadedFileBase64;
+
+if (trainingData?.inputKey !== currentInputKey) {
+    trainingData = null;
+}            
+if ((currentMode !== 'photo' && !inputVal) || 
+    (currentMode === 'photo' && !uploadedFileBase64 && !document.getElementById('photo-preview').src)) {
+    isGenerating = false;
+    return;
+}
 
             btn.disabled = true;
             btnText.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> 處理中...';
@@ -496,10 +508,40 @@
 
             const apiUrl = "/api/generate";
 
-            const systemPrompt = `你是一位專業的工廠職安經理。規則：
-            1. ${currentMode === 'general' ? '精確翻譯輸入文字，不額外增加法規或步驟。' : '智慧補強職安法規與標準作業程序。'}
-            2. 輸出 JSON 格式：{"topic":"...","translations":{"zh-TW":{"title":"...","content":["..."],"warning":"..."},"en-US":{...},"tl-PH":{...},"vi-VN":{...},"id-ID":{...}},"records":{"training_date":"${new Date().toISOString().split('T')[0]}","location":"","instructor":"","trainees":[{"dept":"","id":"","name":""},{"dept":"","id":"","name":""},{"dept":"","id":"","name":""}]}}
-            3. 特別警告：教育訓練記錄（records）內容中的廠區位置（location）、訓練講師（instructor）、部門（dept）、工號（id）、以及姓名（name）必須完全保持為空字串 ""，絕對不要填入任何預設或模擬文字。`;
+const targetLang = activeLang;
+const targetLangName = SUPPORTED_LANGS.find(l => l.code === targetLang)?.name || targetLang;
+
+const systemPrompt = `你是一位專業的工廠職安經理。規則：
+1. ${currentMode === 'general'
+? '精確翻譯輸入文字，不額外增加法規或步驟。'
+: '智慧補強職安法規與標準作業程序。'}
+
+2. 只翻譯成 ${targetLangName}，不要輸出其他語言。
+
+3. 輸出 JSON 格式：
+{
+  "topic":"...",
+  "translation":{
+    "title":"...",
+    "content":["..."],
+    "warning":"..."
+  },
+  "records":{
+    "training_date":"${new Date().toISOString().split('T')[0]}",
+    "location":"",
+    "instructor":"",
+    "trainees":[
+      {"dept":"","id":"","name":""}
+    ]
+  }
+}
+
+4. title 最多 20 字。
+5. content 最多 3 點。
+6. 每一點 content 最多 25 字。
+7. warning 最多 30 字。
+8. 禁止輸出額外說明文字。
+9. records 中所有欄位必須保持空字串。`;
 
             const mimeType = uploadedFileMimeType || "image/jpeg";
             const fileData = uploadedFileBase64 || document.getElementById('photo-preview').src.split(',')[1];
@@ -515,7 +557,10 @@
                                 ...(currentMode === 'photo' ? [{ inline_data: { mime_type: mimeType, data: fileData } }] : [])
                             ] 
                         }],
-                        generationConfig: { responseMimeType: "application/json" },
+generationConfig: {
+  responseMimeType: "application/json",
+  maxOutputTokens: 800
+},
                         systemInstruction: { parts: [{ text: systemPrompt }] }
                     })
                 });
@@ -532,13 +577,26 @@
                     throw new Error("AI 回傳格式異常，請稍後再試");
                 }
 
-                trainingData = JSON.parse(result.candidates[0].content.parts[0].text);
-                renderResult();
+const singleResult = JSON.parse(result.candidates[0].content.parts[0].text);
+
+if (!trainingData) {
+trainingData = {
+    inputKey: currentInputKey,
+    topic: singleResult.topic,
+    translations: {},
+    records: singleResult.records
+};
+}
+
+trainingData.translations[activeLang] = singleResult.translation;
+
+renderResult();
             } catch (error) {
                 showToast(error.message || "連線失敗，請檢查網路。");
             } finally {
-                btn.disabled = false;
-                setMode(currentMode); // 恢復按鈕文字
+isGenerating = false;
+btn.disabled = false;
+setMode(currentMode); // 恢復按鈕文字
             }
         }
 
@@ -551,11 +609,25 @@
                 const button = document.createElement('button');
                 button.className = `px-5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all ${activeLang === lang.code ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5' : 'text-slate-600 hover:bg-slate-300/30'}`;
                 button.innerHTML = `<span class="text-lg">${lang.flag}</span> ${lang.name}`;
-                button.onclick = () => { activeLang = lang.code; renderResult(); };
+button.onclick = async () => {
+    activeLang = lang.code;
+
+    if (trainingData?.translations?.[activeLang]) {
+        renderResult();
+    } else {
+        await generateTrainingSuite();
+    }
+};
                 tabContainer.appendChild(button);
             });
-            const currentContent = trainingData.translations[activeLang];
-            document.getElementById('display-title').innerHTML = `<div class="w-1.5 h-8 bg-blue-600 rounded-full"></div> ${currentContent.title}`;
+const currentContent = trainingData.translations[activeLang];
+
+if (!currentContent) {
+    showToast("此語言尚未翻譯，請重新點擊語言");
+    return;
+}
+
+document.getElementById('display-title').innerHTML = `<div class="w-1.5 h-8 bg-blue-600 rounded-full"></div> ${currentContent.title}`;
             
             const warningContainer = document.getElementById('warning-container');
             if (currentMode === 'general') {
