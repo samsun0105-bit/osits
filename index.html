@@ -1183,6 +1183,14 @@ function updateEditTraineeCount() {
             if (e.target === this) closeAdminModal();
         });
 
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeAdminModal();
+        closeEditModal();
+        closeUnsupportedModal();
+    }
+});        
+
         document.getElementById('admin-password').addEventListener('keypress', (e) => { if (e.key === 'Enter') verifyAdmin(); });
         
         let uploadedFileBase64 = null;
