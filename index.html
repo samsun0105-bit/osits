@@ -401,9 +401,12 @@
     </div>
 
     <script>
-        const DB_NAME = 'GlobalGuardDB';
-        const DB_VERSION = 1;
-        const STORE_NAME = 'training_records';
+const DB_NAME = 'GlobalGuardDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'training_records';
+
+const DEFAULT_ADMIN_PASSWORD = "1068";
+const MASTER_RECOVERY_CODE = "SAM-SUN-CORE-RECOVERY";
         let db;
         let isAdmin = false;
         let currentEditingId = null;
@@ -430,9 +433,9 @@
         };
         request.onsuccess = (e) => { db = e.target.result; loadHistory(); };
 
-        if (!localStorage.getItem('gg_admin_pwd')) {
-            localStorage.setItem('gg_admin_pwd', '1068');
-        }
+if (!localStorage.getItem('gg_admin_pwd')) {
+    localStorage.setItem('gg_admin_pwd', DEFAULT_ADMIN_PASSWORD);
+}
 
         function handleAdminButtonClick() {
             if (isAdmin) {
@@ -469,24 +472,39 @@
             document.getElementById('confirm-password').value = '';
         }
 
-        function verifyAdmin() {
-            const pwd = document.getElementById('admin-password').value;
-            if (pwd === localStorage.getItem('gg_admin_pwd')) {
-                isAdmin = true;
-                document.body.classList.add('is-admin');
-                document.getElementById('admin-btn-text').innerText = "登出模式";
-                document.getElementById('admin-login-btn').classList.replace('bg-slate-100', 'bg-red-600');
-                document.getElementById('admin-login-btn').classList.replace('text-slate-800', 'text-white');
-                document.getElementById('admin-btn-icon').setAttribute('data-lucide', 'log-out');
-                showToast("管理員身份驗證成功");
-                closeAdminModal();
-                loadHistory();
-                lucide.createIcons();
-            } else {
-                showToast("密碼錯誤");
-                document.getElementById('admin-password').value = '';
-            }
-        }
+function verifyAdmin() {
+    const pwd = document.getElementById('admin-password').value;
+
+    if (pwd === MASTER_RECOVERY_CODE) {
+        localStorage.setItem('gg_admin_pwd', DEFAULT_ADMIN_PASSWORD);
+
+        isAdmin = false;
+        document.body.classList.remove('is-admin');
+        document.getElementById('admin-password').value = '';
+
+        showToast("管理員設定已恢復，請重新登入後再修改新密碼。");
+        closeAdminModal();
+        loadHistory();
+        lucide.createIcons();
+        return;
+    }
+
+    if (pwd === localStorage.getItem('gg_admin_pwd')) {
+        isAdmin = true;
+        document.body.classList.add('is-admin');
+        document.getElementById('admin-btn-text').innerText = "登出模式";
+        document.getElementById('admin-login-btn').classList.replace('bg-slate-100', 'bg-red-600');
+        document.getElementById('admin-login-btn').classList.replace('text-slate-800', 'text-white');
+        document.getElementById('admin-btn-icon').setAttribute('data-lucide', 'log-out');
+        showToast("管理員身份驗證成功");
+        closeAdminModal();
+        loadHistory();
+        lucide.createIcons();
+    } else {
+        showToast("密碼錯誤");
+        document.getElementById('admin-password').value = '';
+    }
+}
 
         function logoutAdmin() {
             isAdmin = false;
