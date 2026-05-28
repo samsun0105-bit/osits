@@ -189,10 +189,10 @@
                     </h3>
                     <div class="grid grid-cols-2 gap-3">
                         <button onclick="exportDatabase()" class="flex items-center justify-center gap-2 px-3 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-700 hover:bg-slate-100 transition-colors">
-                            <i data-lucide="download" class="w-3.5 h-3.5"></i> 導出數據
+                            <i data-lucide="upload" class="w-3.5 h-3.5"></i> 導出數據
                         </button>
                         <button onclick="document.getElementById('import-input').click()" class="flex items-center justify-center gap-2 px-3 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-700 hover:bg-slate-100 transition-colors">
-                            <i data-lucide="upload" class="w-3.5 h-3.5"></i> 導入數據
+                            <i data-lucide="download" class="w-3.5 h-3.5"></i> 導入數據
                         </button>
                         <input type="file" id="import-input" class="hidden" accept=".json" onchange="importDatabase(event)">
                     </div>
