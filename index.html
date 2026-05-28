@@ -189,10 +189,10 @@
                     </h3>
                     <div class="grid grid-cols-2 gap-3">
                         <button onclick="exportDatabase()" class="flex items-center justify-center gap-2 px-3 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-700 hover:bg-slate-100 transition-colors">
-                            <i data-lucide="download" class="w-3.5 h-3.5"></i> 導出數據庫
+                            <i data-lucide="download" class="w-3.5 h-3.5"></i> 導出數據
                         </button>
                         <button onclick="document.getElementById('import-input').click()" class="flex items-center justify-center gap-2 px-3 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-700 hover:bg-slate-100 transition-colors">
-                            <i data-lucide="upload" class="w-3.5 h-3.5"></i> 導入數據庫
+                            <i data-lucide="upload" class="w-3.5 h-3.5"></i> 導入數據
                         </button>
                         <input type="file" id="import-input" class="hidden" accept=".json" onchange="importDatabase(event)">
                     </div>
@@ -963,13 +963,13 @@ function updateEditTraineeCount() {
             };
 
             req.onerror = () => {
-                showToast("導出數據庫失敗");
+                showToast("導出數據失敗");
             };
         }
 
         function importDatabase(event) {
             if (!db) {
-                showToast("數據庫未就緒");
+                showToast("數據未就緒");
                 return;
             }
             const file = event.target.files[0];
@@ -1000,7 +1000,7 @@ function updateEditTraineeCount() {
                     };
 
                     transaction.onerror = () => {
-                        showToast("導入數據庫失敗");
+                        showToast("導入數據失敗");
                     };
 
                 } catch (err) {
