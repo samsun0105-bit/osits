@@ -22,10 +22,292 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
-        @media print {
-            .no-print { display: none !important; }
-            .print-area { box-shadow: none !important; border: none !important; width: 100% !important; }
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 12mm 12mm 16mm 12mm;
+
+        @bottom-center {
+            content: "第 " counter(page) " 頁 / 共 " counter(pages) " 頁";
+            font-size: 10px;
+            color: #64748b;
         }
+    }
+
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+
+    html,
+    body {
+        width: auto !important;
+        height: auto !important;
+        min-height: auto !important;
+        overflow: visible !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
+    }
+
+    body {
+        font-size: 12px !important;
+        line-height: 1.5 !important;
+    }
+
+    .no-print,
+    .system-header,
+    .system-footer,
+    #empty-state,
+    #lang-tabs,
+    #toast,
+    #admin-modal,
+    #edit-modal,
+    #unsupported-lang-modal {
+        display: none !important;
+    }
+
+    .max-w-7xl {
+        max-width: none !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .grid,
+    .lg\:grid-cols-12 {
+        display: block !important;
+    }
+
+    .lg\:col-span-8 {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    #result-content {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .print-area {
+        width: 100% !important;
+        margin: 0 0 10mm 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+        background: #ffffff !important;
+        box-shadow: none !important;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+    }
+
+    .print-area:first-of-type {
+        border-bottom: 2px solid #0f172a !important;
+        padding-bottom: 8mm !important;
+        margin-bottom: 8mm !important;
+    }
+
+#display-title {
+    display: block !important;
+    text-align: center !important;
+    font-size: 20px !important;
+    line-height: 1.35 !important;
+    font-weight: 900 !important;
+    color: #1e293b !important;
+    margin: 0 0 8mm 0 !important;
+    padding-bottom: 4mm !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    letter-spacing: 0.04em !important;
+}
+
+#display-title::before {
+    content: "職業安全智慧翻譯宣導報告";
+    display: block !important;
+    font-size: 24px !important;
+    line-height: 1.35 !important;
+    font-weight: 900 !important;
+    color: #0f172a !important;
+    letter-spacing: 0.08em !important;
+    text-align: center !important;
+    margin-bottom: 3mm !important;
+}
+
+    #display-title > div {
+        display: none !important;
+    }
+
+    #display-steps {
+        display: block !important;
+        margin-top: 4mm !important;
+    }
+
+    #display-steps > div {
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 4mm !important;
+        padding: 4mm !important;
+        margin-bottom: 4mm !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 6px !important;
+        background: #f8fafc !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    #display-steps > div > div:first-child > div:first-child {
+        width: 8mm !important;
+        height: 8mm !important;
+        min-width: 8mm !important;
+        border-radius: 4px !important;
+        background: #0f172a !important;
+        color: #ffffff !important;
+        font-size: 12px !important;
+        font-weight: 900 !important;
+    }
+
+    #display-steps p {
+        font-size: 14px !important;
+        line-height: 1.6 !important;
+        color: #0f172a !important;
+        font-weight: 700 !important;
+        margin: 0 !important;
+    }
+
+    #warning-container {
+        margin-top: 8mm !important;
+        padding: 5mm !important;
+        border: 1px solid #991b1b !important;
+        border-left: 5px solid #dc2626 !important;
+        border-radius: 6px !important;
+        background: #fef2f2 !important;
+        color: #7f1d1d !important;
+        box-shadow: none !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    #warning-container i {
+        color: #dc2626 !important;
+    }
+
+    #warning-container .bg-white\/20 {
+        background: transparent !important;
+        padding: 0 !important;
+    }
+
+    #display-warning {
+        font-size: 13px !important;
+        line-height: 1.5 !important;
+        color: #7f1d1d !important;
+        font-weight: 900 !important;
+    }
+
+    .bg-slate-900.print-area,
+    .bg-slate-900 {
+        background: #ffffff !important;
+        color: #0f172a !important;
+    }
+
+    .bg-slate-900.print-area h3 {
+        color: #0f172a !important;
+        font-size: 17px !important;
+        font-weight: 900 !important;
+        border-bottom: 2px solid #0f172a !important;
+        padding-bottom: 4mm !important;
+        margin-bottom: 6mm !important;
+        letter-spacing: 0.06em !important;
+    }
+
+    .bg-white\/5 {
+        background: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #0f172a !important;
+    }
+
+.bg-slate-900.print-area .grid.grid-cols-2 {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0 !important;
+    margin-bottom: 6mm !important;
+    border-top: 1px solid #cbd5e1 !important;
+    border-left: 1px solid #cbd5e1 !important;
+}
+
+.bg-slate-900.print-area .grid.grid-cols-2 > div {
+    border-right: 1px solid #cbd5e1 !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    padding: 3mm !important;
+}
+
+.bg-slate-900.print-area .grid.grid-cols-2 span:first-child {
+    color: #475569 !important;
+    font-size: 10px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.04em !important;
+    margin-bottom: 1.5mm !important;
+}
+
+.bg-slate-900.print-area .grid.grid-cols-2 span:last-child {
+    color: #0f172a !important;
+    font-size: 13px !important;
+    font-weight: 900 !important;
+    min-height: 6mm !important;
+}    
+
+    #display-date,
+    #display-location,
+    #display-instructor,
+    #display-trainee-count {
+        color: #0f172a !important;
+        font-weight: 900 !important;
+    }
+
+    .text-slate-400,
+    .text-slate-300,
+    .opacity-50 {
+        color: #475569 !important;
+        opacity: 1 !important;
+    }
+
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        border-spacing: 0 !important;
+        margin-top: 4mm !important;
+        font-size: 11px !important;
+    }
+
+    thead {
+        display: table-header-group !important;
+    }
+
+    tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    th,
+    td {
+        border: 1px solid #cbd5e1 !important;
+        padding: 3mm !important;
+        color: #0f172a !important;
+        background: #ffffff !important;
+        vertical-align: middle !important;
+    }
+
+    th {
+        background: #e2e8f0 !important;
+        font-weight: 900 !important;
+        text-align: left !important;
+    }
+
+    tbody {
+        color: #0f172a !important;
+    }
+}
 
         @media (max-width: 768px) {
     .system-header {
